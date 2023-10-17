@@ -25,7 +25,13 @@ parensIf False = id
 pp :: Int -> [String] -> Term -> Doc
 pp ii vs (Bound k         ) = text (vs !! (ii - k - 1))
 pp _  _  (Free  (Global s)) = text s
-
+pp ii vs (Let t1 t2       ) =
+    text "let"  
+    <> text (vs !! ii)
+    <> text "="
+    <> pp ii vs t1
+    <> text "in"
+    <> pp ii vs t2
 pp ii vs (i :@: c         ) = sep
   [ parensIf (isLam i) (pp ii vs i)
   , nest 1 (parensIf (isLam c || isApp c) (pp ii vs c))

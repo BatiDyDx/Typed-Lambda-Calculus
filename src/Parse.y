@@ -22,15 +22,17 @@ import Data.Char
     '('     { TOpen }
     ')'     { TClose }
     '->'    { TArrow }
+    'let'   { TLet }
+    'in'    { TIn }
+    'unit'  { TUnit }
     VAR     { TVar $$ }
     TYPEE   { TTypeE }
     DEF     { TDef }
-    
 
 %right VAR
 %left '=' 
 %right '->'
-%right '\\' '.' 
+%right '\\' '.' 'let'
 
 %%
 
@@ -40,6 +42,7 @@ Defexp  : DEF VAR '=' Exp              { Def $2 $4 }
 
 Exp     :: { LamTerm }
         : '\\' VAR ':' Type '.' Exp    { LAbs $2 $4 $6 }
+        | 'let' VAR '=' Exp 'in' Exp   { LLet $2 $4 $6 }
         | NAbs                         { $1 }
         
 NAbs    :: { LamTerm }
@@ -47,10 +50,12 @@ NAbs    :: { LamTerm }
         | Atom                         { $1 }
 
 Atom    :: { LamTerm }
-        : VAR                          { LVar $1 }  
+        : 'unit'                       { LUnit }
+        | VAR                          { LVar $1 }  
         | '(' Exp ')'                  { $2 }
 
 Type    : TYPEE                        { EmptyT }
+        | 'Unit'                       { UnitT } 
         | Type '->' Type               { FunT $1 $3 }
         | '(' Type ')'                 { $2 }
 
@@ -97,6 +102,8 @@ data Token = TVar String
                | TArrow
                | TEquals
                | TEOF
+               | TLet
+               | TUnit
                deriving Show
 
 ----------------------------------
@@ -117,7 +124,10 @@ lexer cont s = case s of
                     (')':cs) -> cont TClose cs
                     (':':cs) -> cont TColon cs
                     ('=':cs) -> cont TEquals cs
-                    unknown -> \line -> Failed $ 
+                    ('l':('e':('t':cs)))-> cont TLet cs
+                    ('i':('n':cs)) -> cont TIn cs
+                    ('u':('n':('i':('t':cs)))) -> cont TUnit cs
+                     unknown -> \line -> Failed $ 
                      "Línea "++(show line)++": No se puede reconocer "++(show $ take 10 unknown)++ "..."
                     where lexVar cs = case span isAlpha cs of
                               ("E",rest)    -> cont TTypeE rest
