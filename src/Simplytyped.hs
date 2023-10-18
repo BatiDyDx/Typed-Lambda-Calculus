@@ -21,11 +21,12 @@ conversion :: LamTerm -> Term
 conversion = conversion' []
 
 conversion' :: [String] -> LamTerm -> Term
+conversion' b LUnit          = Unit
 conversion' b (LVar n    )   = maybe (Free (Global n)) Bound (n `elemIndex` b)
 conversion' b (LApp t u  )   = conversion' b t :@: conversion' b u
 conversion' b (LAbs n t u)   = Lam t (conversion' (n : b) u)
 conversion' b (LLet x t1 t2) = Let (conversion' b t1) (conversion' (x:b) t2)
-conversion' b LUnit          = Unit
+conversion' b (LPair t1 t2)  = Pair (conversion' b t1) (conversion' b t2)
 
 -----------------------
 --- eval
@@ -41,9 +42,14 @@ sub i t (Lam t'  u)           = Lam t' (sub (i + 1) t u)
 sub i t (Let t1 t2)           = let t1' = sub i t t1
                                     t2' = sub (i+1) t t2
                                 in Let t1' t2'
+sub i t (Pair t1 t2)          = let t1' = sub i t t1
+                                    t2' = sub i t t2
+                                in Pair t1' t2'
+
 --
 -- evaluador de términos
 eval :: NameEnv Value Type -> Term -> Value
+eval e Unit                   = VUnit
 eval _ (Bound _             ) = error "variable ligada inesperada en eval"
 eval e (Free  n             ) = fst $ fromJust $ lookup n e
 eval _ (Lam      t   u      ) = VLam t u
@@ -52,8 +58,11 @@ eval e (Lam t u1 :@: u2     ) = let v2 = eval e u2 in eval e (sub 0 (quote v2) u
 eval e (u        :@: v      ) = case eval e u of
   VLam t u' -> eval e (Lam t u' :@: v)
   _         -> error "Error de tipo en run-time, verificar type checker"
-eval e (Let t1 t2           )= let v = eval e t1 in eval e (sub 0 (quote v) t2) 
-eval e Unit                  = VUnit
+eval e (Let t1 t2           ) = let v = eval e t1 in eval e (sub 0 (quote v) t2) 
+eval e (Pair t1 t2          ) = let v1 = eval e t1
+                                    v2 = eval e t2
+                                in VPair v1 v2
+
 
 -----------------------
 --- quoting
@@ -62,6 +71,7 @@ eval e Unit                  = VUnit
 quote :: Value -> Term
 quote (VLam t f) = Lam t f
 quote VUnit      = Unit
+quote (VPair v1 v2) = Pair (quote v1) (quote v2)
 
 ----------------------
 --- type checker
@@ -110,4 +120,6 @@ infer' c e (t :@: u) = infer' c e t >>= \tt -> infer' c e u >>= \tu ->
 infer' c e (Lam t u) = infer' (t : c) e u >>= \tu -> ret $ FunT t tu
 infer' c e (Let t1 t2) = infer' c e t1 >>= \tu -> infer' (tu:c) e t2
 infer' c e Unit  = ret $ UnitT
+infer' c e (Pair t1 t2) = infer' c e t1 >>= \tu1 -> infer' c e t2
+                          >>= \tu2 -> ret $ PairT tu1 tu2
 ----------------------------------

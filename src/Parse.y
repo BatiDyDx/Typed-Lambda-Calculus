@@ -22,18 +22,20 @@ import Data.Char
     '('     { TOpen }
     ')'     { TClose }
     '->'    { TArrow }
+    ','     { TComma }
     let     { TLet }
     in      { TIn }
     unit    { TUnit }
     VAR     { TVar $$ }
-    TYPEU   { TTypeUnit }
     TYPEE   { TTypeE }
+    TYPEU   { TTypeUnit }
     DEF     { TDef }
 
 %right VAR
 %left '=' 
 %right '->'
 %right '\\' '.' let
+%nonassoc fst snd
 
 %%
 
@@ -53,11 +55,13 @@ NAbs    :: { LamTerm }
 Atom    :: { LamTerm }
         : unit                         { LUnit }
         | VAR                          { LVar $1 }  
+        | '(' Exp ',' Exp ')'          { LPair $2 $4 }
         | '(' Exp ')'                  { $2 }
 
 Type    : TYPEE                        { EmptyT }
         | TYPEU                        { UnitT }
         | Type '->' Type               { FunT $1 $3 }
+        | '(' Type ',' Type ')'        { PairT $2 $4 }
         | '(' Type ')'                 { $2 }
 
 Defs    : Defexp Defs                  { $1 : $2 }
@@ -103,6 +107,7 @@ data Token = TVar String
                | TColon
                | TArrow
                | TEquals
+               | TComma
                | TEOF
                | TLet
                | TIn
@@ -127,6 +132,7 @@ lexer cont s = case s of
                     (')':cs) -> cont TClose cs
                     (':':cs) -> cont TColon cs
                     ('=':cs) -> cont TEquals cs
+                    (',':cs) -> cont TComma cs
                     unknown -> \line -> Failed $ 
                      "Línea "++(show line)++": No se puede reconocer "++(show $ take 10 unknown)++ "..."
                     where lexVar cs = case span isAlpha cs of
