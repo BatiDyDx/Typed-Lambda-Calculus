@@ -102,5 +102,5 @@ infer' c e (t :@: u) = infer' c e t >>= \tt -> infer' c e u >>= \tu ->
     FunT t1 t2 -> if (tu == t1) then ret t2 else matchError t1 tu
     _          -> notfunError tt
 infer' c e (Lam t u) = infer' (t : c) e u >>= \tu -> ret $ FunT t tu
-infer' c e (Let t1 t2) = infer' c e t1 >>= \tu -> ret $ infer' (tu:c) e t2
+infer' c e (Let t1 t2) = infer' c e t1 >>= \tu -> infer' (tu:c) e t2
 ----------------------------------

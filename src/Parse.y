@@ -22,17 +22,18 @@ import Data.Char
     '('     { TOpen }
     ')'     { TClose }
     '->'    { TArrow }
-    'let'   { TLet }
-    'in'    { TIn }
-    'unit'  { TUnit }
+    let     { TLet }
+    in      { TIn }
+    unit    { TUnit }
     VAR     { TVar $$ }
+    TYPEU   { TTypeUnit }
     TYPEE   { TTypeE }
     DEF     { TDef }
 
 %right VAR
 %left '=' 
 %right '->'
-%right '\\' '.' 'let'
+%right '\\' '.' let
 
 %%
 
@@ -42,7 +43,7 @@ Defexp  : DEF VAR '=' Exp              { Def $2 $4 }
 
 Exp     :: { LamTerm }
         : '\\' VAR ':' Type '.' Exp    { LAbs $2 $4 $6 }
-        | 'let' VAR '=' Exp 'in' Exp   { LLet $2 $4 $6 }
+        | let VAR '=' Exp in Exp   { LLet $2 $4 $6 }
         | NAbs                         { $1 }
         
 NAbs    :: { LamTerm }
@@ -50,18 +51,18 @@ NAbs    :: { LamTerm }
         | Atom                         { $1 }
 
 Atom    :: { LamTerm }
-        : 'unit'                       { LUnit }
+        : unit                         { LUnit }
         | VAR                          { LVar $1 }  
         | '(' Exp ')'                  { $2 }
 
 Type    : TYPEE                        { EmptyT }
-        | 'Unit'                       { UnitT } 
+        | TYPEU                        { UnitT }
         | Type '->' Type               { FunT $1 $3 }
         | '(' Type ')'                 { $2 }
 
 Defs    : Defexp Defs                  { $1 : $2 }
         |                              { [] }
-     
+ 
 {
 
 data ParseResult a = Ok a | Failed String
@@ -93,6 +94,7 @@ happyError = \ s i -> Failed $ "Línea "++(show (i::LineNumber))++": Error de pa
 
 data Token = TVar String
                | TTypeE
+               | TTypeUnit
                | TDef
                | TAbs
                | TDot
@@ -103,6 +105,7 @@ data Token = TVar String
                | TEquals
                | TEOF
                | TLet
+               | TIn
                | TUnit
                deriving Show
 
@@ -114,7 +117,7 @@ lexer cont s = case s of
                           | isSpace c -> lexer cont cs
                           | isAlpha c -> lexVar (c:cs)
                     ('-':('-':cs)) -> lexer cont $ dropWhile ((/=) '\n') cs
-                    ('{':('-':cs)) -> consumirBK 0 0 cont cs	
+                    ('{':('-':cs)) -> consumirBK 0 0 cont cs
                     ('-':('}':cs)) -> \ line -> Failed $ "Línea "++(show line)++": Comentario no abierto"
                     ('-':('>':cs)) -> cont TArrow cs
                     ('\\':cs)-> cont TAbs cs
@@ -124,14 +127,16 @@ lexer cont s = case s of
                     (')':cs) -> cont TClose cs
                     (':':cs) -> cont TColon cs
                     ('=':cs) -> cont TEquals cs
-                    ('l':('e':('t':cs)))-> cont TLet cs
-                    ('i':('n':cs)) -> cont TIn cs
-                    ('u':('n':('i':('t':cs)))) -> cont TUnit cs
-                     unknown -> \line -> Failed $ 
+                    unknown -> \line -> Failed $ 
                      "Línea "++(show line)++": No se puede reconocer "++(show $ take 10 unknown)++ "..."
                     where lexVar cs = case span isAlpha cs of
                               ("E",rest)    -> cont TTypeE rest
+                              ("Unit",rest) -> cont TTypeUnit rest
                               ("def",rest)  -> cont TDef rest
+                              ("let",rest)  -> cont TLet rest
+                              ("in",rest)   -> cont TIn rest
+                              ("unit",rest) -> cont TUnit rest
+                              ("Unit",rest) -> cont TTypeUnit rest
                               (var,rest)    -> cont (TVar var) rest
                           consumirBK anidado cl cont s = case s of
                               ('-':('-':cs)) -> consumirBK anidado cl cont $ dropWhile ((/=) '\n') cs
