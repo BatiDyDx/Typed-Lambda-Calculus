@@ -45,6 +45,8 @@ pp ii vs (Pair t1 t2) =
     <> text ","
     <> pp ii vs t2
     <> text ")"
+pp ii vs (Fst t) = text "fst " <> pp ii vs t
+pp ii vs (Snd t) = text "snd " <> pp ii vs t
 
 isLam :: Term -> Bool
 isLam (Lam _ _) = True
@@ -80,6 +82,9 @@ fv (t   :@: u       ) = fv t ++ fv u
 fv (Lam _   u       ) = fv u
 fv (Let t1 t2)        = fv t1 ++ fv t2
 fv (Pair t1 t2)       = fv t1 ++ fv t2
+fv (Fst t)            = fv t
+fv (Snd t)            = fv t
+
 ---
 printTerm :: Term -> Doc
 printTerm t = pp 0 (filter (\v -> not $ elem v (fv t)) vars) t

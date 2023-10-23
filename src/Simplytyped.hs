@@ -27,6 +27,8 @@ conversion' b (LApp t u  )   = conversion' b t :@: conversion' b u
 conversion' b (LAbs n t u)   = Lam t (conversion' (n : b) u)
 conversion' b (LLet x t1 t2) = Let (conversion' b t1) (conversion' (x:b) t2)
 conversion' b (LPair t1 t2)  = Pair (conversion' b t1) (conversion' b t2)
+conversion' b (LFst t)       = Fst (conversion' b t)
+conversion' b (LSnd t)       = Snd (conversion' b t)
 
 -----------------------
 --- eval
@@ -45,6 +47,8 @@ sub i t (Let t1 t2)           = let t1' = sub i t t1
 sub i t (Pair t1 t2)          = let t1' = sub i t t1
                                     t2' = sub i t t2
                                 in Pair t1' t2'
+sub i t (Fst t1)              = Fst (sub i t t1)
+sub i t (Snd t1)              = Snd (sub i t t1)
 
 --
 -- evaluador de términos
@@ -62,7 +66,12 @@ eval e (Let t1 t2           ) = let v = eval e t1 in eval e (sub 0 (quote v) t2)
 eval e (Pair t1 t2          ) = let v1 = eval e t1
                                     v2 = eval e t2
                                 in VPair v1 v2
-
+eval e (Fst t               ) = case eval e t of
+  VPair v1 v2 -> v1
+  _           -> error "Error de tipo en run-time, verificar type checker"
+eval e (Snd t               ) = case eval e t of
+  VPair v1 v2 -> v2
+  _           -> error "Error de tipo en run-time, verificar type checker"
 
 -----------------------
 --- quoting
@@ -105,6 +114,9 @@ matchError t1 t2 =
 notfunError :: Type -> Either String Type
 notfunError t1 = err $ render (printType t1) ++ " no puede ser aplicado."
 
+notpairError :: Type -> Either String Type
+notpairError t1 = err $ render (printType t1) ++ " no es un par."
+
 notfoundError :: Name -> Either String Type
 notfoundError n = err $ show n ++ " no está definida."
 
@@ -122,4 +134,12 @@ infer' c e (Let t1 t2) = infer' c e t1 >>= \tu -> infer' (tu:c) e t2
 infer' c e Unit  = ret $ UnitT
 infer' c e (Pair t1 t2) = infer' c e t1 >>= \tu1 -> infer' c e t2
                           >>= \tu2 -> ret $ PairT tu1 tu2
+infer' c e (Fst t) = infer' c e t >>= \tt ->
+  case tt of
+    PairT tu1 tu2 -> ret tu1
+    _             -> notpairError tt
+infer' c e (Snd t) = infer' c e t >>= \tt ->
+  case tt of
+    PairT tu1 tu2 -> ret tu2
+    _             -> notpairError tt
 ----------------------------------
