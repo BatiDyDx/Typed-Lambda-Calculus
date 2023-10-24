@@ -21,14 +21,17 @@ conversion :: LamTerm -> Term
 conversion = conversion' []
 
 conversion' :: [String] -> LamTerm -> Term
-conversion' b LUnit          = Unit
-conversion' b (LVar n    )   = maybe (Free (Global n)) Bound (n `elemIndex` b)
-conversion' b (LApp t u  )   = conversion' b t :@: conversion' b u
-conversion' b (LAbs n t u)   = Lam t (conversion' (n : b) u)
-conversion' b (LLet x t1 t2) = Let (conversion' b t1) (conversion' (x:b) t2)
-conversion' b (LPair t1 t2)  = Pair (conversion' b t1) (conversion' b t2)
-conversion' b (LFst t)       = Fst (conversion' b t)
-conversion' b (LSnd t)       = Snd (conversion' b t)
+conversion' b LUnit           = Unit
+conversion' b (LVar n    )    = maybe (Free (Global n)) Bound (n `elemIndex` b)
+conversion' b (LApp t u  )    = conversion' b t :@: conversion' b u
+conversion' b (LAbs n t u)    = Lam t (conversion' (n : b) u)
+conversion' b (LLet x t1 t2)  = Let (conversion' b t1) (conversion' (x:b) t2)
+conversion' b (LPair t1 t2)   = Pair (conversion' b t1) (conversion' b t2)
+conversion' b (LFst t)        = Fst (conversion' b t)
+conversion' b (LSnd t)        = Snd (conversion' b t)
+conversion' b LZero           = Zero
+conversion' b (LSuc t)        = Suc (conversion' b t)
+conversion' b (LRec t1 t2 t3) = Rec (conversion' b t1) (conversion' b t2) (conversion' b t3) 
 
 -----------------------
 --- eval
@@ -49,7 +52,12 @@ sub i t (Pair t1 t2)          = let t1' = sub i t t1
                                 in Pair t1' t2'
 sub i t (Fst t1)              = Fst (sub i t t1)
 sub i t (Snd t1)              = Snd (sub i t t1)
-
+sub i t Zero                  = Zero
+sub i t (Suc t1)              = Suc (sub i t t1)
+sub i t (Rec t1 t2 t3)        = let t1' = sub i t t1
+                                    t2' = sub i t t2
+                                    t3' = sub i t t3
+                                in Rec t1' t2' t3'
 --
 -- evaluador de términos
 eval :: NameEnv Value Type -> Term -> Value
@@ -72,7 +80,16 @@ eval e (Fst t               ) = case eval e t of
 eval e (Snd t               ) = case eval e t of
   VPair v1 v2 -> v2
   _           -> error "Error de tipo en run-time, verificar type checker"
-
+eval e Zero                   = VNum NZero  
+eval e (Suc t)                = VNum $ NSuc $ eval e t
+eval e (Rec t1 t2 Zero      ) = eval e t1
+eval e (Rec t1 t2 (Suc t3)  ) = let t2' = eval e t2 
+                                    t'  = eval e (R t1 t2 t3) 
+                                in t2 :@: t'     
+eval e (Rec t1 t2 t3)         = case eval e t3 of
+                                   VNum NZero    -> eval e t1
+                                   VNum (Nsuc v) -> eval e (t2 :@: (Rec t1 t2 v
+                                   _             -> let t3'  eval e t3  
 -----------------------
 --- quoting
 -----------------------
