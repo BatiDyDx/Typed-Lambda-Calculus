@@ -25,7 +25,7 @@ import Data.Char
     ','     { TComma }
     let     { TLet }
     in      { TIn }
-    0       { TZero}
+    zero    { TZero }
     suc     { TSuc }
     R       { TRec }
     fst     { TFst }
@@ -55,11 +55,11 @@ Exp     :: { LamTerm }
         : '\\' VAR ':' Type '.' Exp    { LAbs $2 $4 $6 }
         | let VAR '=' Exp in Exp       { LLet $2 $4 $6 }
         | NAbs                         { $1 }
-        
-NAbs    :: { LamTerm }
-        : NAbs Atom                    { LApp $1 $2 }
         | fst Exp                      { LFst $2 }
         | snd Exp                      { LSnd $2 }
+
+NAbs    :: { LamTerm }
+        : NAbs Atom                    { LApp $1 $2 }
         | Atom                         { $1 }
 
 Atom    :: { LamTerm }
@@ -67,12 +67,13 @@ Atom    :: { LamTerm }
         | VAR                          { LVar $1 }  
         | '(' Exp ',' Exp ')'          { LPair $2 $4 }
         | '(' Exp ')'                  { $2 }
-        | 0                            { LZero }                
+        | zero                            { LZero }                
         | suc Exp                      { LSuc $2 }
-        | R Exp Exp Exp                { LRec $2 $3 $4 }                           
+        | R Atom Atom Atom             { LRec $2 $3 $4 }                           
 
 Type    : TYPEE                        { EmptyT }
         | TYPEU                        { UnitT }
+        | TYPENAT                      { NatT }
         | Type '->' Type               { FunT $1 $3 }
         | '(' Type ',' Type ')'        { PairT $2 $4 }
         | '(' Type ')'                 { $2 }
@@ -152,6 +153,7 @@ lexer cont s = case s of
                     (':':cs) -> cont TColon cs
                     ('=':cs) -> cont TEquals cs
                     (',':cs) -> cont TComma cs
+                    ('0':cs)   -> cont TZero cs
                     unknown -> \line -> Failed $ 
                      "Línea "++(show line)++": No se puede reconocer "++(show $ take 10 unknown)++ "..."
                     where lexVar cs = case span isAlpha cs of
@@ -165,7 +167,6 @@ lexer cont s = case s of
                               ("Unit",rest) -> cont TTypeUnit rest
                               ("fst",rest)  -> cont TFst rest
                               ("snd",rest)  -> cont TSnd rest
-                              ("0",rest)    -> cont TZero rest
                               ("suc",rest)  -> cont TSuc rest
                               ("R",rest)    -> cont TRec rest
                               (var,rest)    -> cont (TVar var) rest

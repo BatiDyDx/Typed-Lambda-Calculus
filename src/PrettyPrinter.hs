@@ -47,9 +47,9 @@ pp ii vs (Pair t1 t2) =
     <> text ")"
 pp ii vs (Fst t) = text "fst " <> pp ii vs t
 pp ii vs (Snd t) = text "snd " <> pp ii vs t
-pp ii vs 0 = text "0"
+pp ii vs Zero = text "0"
 pp ii vs (Suc t)  = text "suc " <> pp ii vs t  
-pp ii vs (R t1 t2 t3)  = sep [text "R", pp ii vs t1,
+pp ii vs (Rec t1 t2 t3)  = sep [text "R", pp ii vs t1,
                               pp ii vs t2, pp ii vs t3] 
 
 

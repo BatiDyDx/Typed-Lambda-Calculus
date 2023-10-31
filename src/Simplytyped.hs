@@ -81,22 +81,31 @@ eval e (Snd t               ) = case eval e t of
   VPair v1 v2 -> v2
   _           -> error "Error de tipo en run-time, verificar type checker"
 eval e Zero                   = VNum NZero  
-eval e (Suc t)                = VNum $ NSuc $ eval e t
+eval e (Suc t)                = case eval e t of
+                                  VNum v -> VNum $ NSuc $ v
+                                  _      -> error "error"
 eval e (Rec t1 t2 Zero      ) = eval e t1
-eval e (Rec t1 t2 (Suc t3)  ) = let t2' = eval e t2 
-                                    t'  = eval e (R t1 t2 t3) 
-                                in t2 :@: t'     
+eval e (Rec t1 t2 (Suc t3)  ) = eval e ((t2 :@: (Rec t1 t2 t3)) :@: t3)
 eval e (Rec t1 t2 t3)         = case eval e t3 of
-                                   VNum NZero    -> eval e t1
-                                   VNum (Nsuc v) -> eval e (t2 :@: (Rec t1 t2 v
-                                   _             -> let t3'  eval e t3  
+                                   VNum v -> eval e (Rec t1 t2 (quoteNV v))
+                                   -- VNum v -> eval e (unfoldRec t1 t2 v)
+                                   _      -> error "Error de tipo en run-time, verificar type checker"
+
+unfoldRec :: Term -> Term -> NumVal -> Term
+unfoldRec t1 t2 NZero = t1
+unfoldRec t1 t2 (NSuc v) = (t2 :@: (unfoldRec t1 t2 v))
+
 -----------------------
 --- quoting
 -----------------------
+quoteNV :: NumVal -> Term
+quoteNV NZero = Zero
+quoteNV (NSuc v) = Suc (quoteNV v)
 
 quote :: Value -> Term
 quote (VLam t f) = Lam t f
 quote VUnit      = Unit
+quote (VNum v) = quoteNV v
 quote (VPair v1 v2) = Pair (quote v1) (quote v2)
 
 ----------------------
@@ -134,6 +143,9 @@ notfunError t1 = err $ render (printType t1) ++ " no puede ser aplicado."
 notpairError :: Type -> Either String Type
 notpairError t1 = err $ render (printType t1) ++ " no es un par."
 
+notnatError :: Type -> Either String Type
+notnatError t1 = err $ render (printType t1) ++ " no es un natural."
+
 notfoundError :: Name -> Either String Type
 notfoundError n = err $ show n ++ " no está definida."
 
@@ -159,4 +171,23 @@ infer' c e (Snd t) = infer' c e t >>= \tt ->
   case tt of
     PairT tu1 tu2 -> ret tu2
     _             -> notpairError tt
+infer' c e Zero = ret NatT
+infer' c e (Suc t) = infer' c e t >>= \tt ->
+  case tt of
+    NatT -> ret NatT
+    _    -> notnatError tt
+infer' c e (Rec t1 t2 t3) = do  tt1 <- infer' c e t1
+                                tt2 <- infer' c e t2
+                                tt3 <- infer' c e t3
+                                if tt3 /= NatT
+                                then notnatError tt3
+                                else matchRecTypes tt1 tt2
+
+matchRecTypes :: Type -> Type -> Either String Type
+matchRecTypes t (FunT (FunT s n) r) | n /= NatT = matchError NatT n
+                                    | t /= s    = matchError t s
+                                    | s /= r    = matchError s r
+                                    | otherwise = ret t
+matchRecTypes _ (FunT s r) = notfunError s
+matchRecTypes _ s          = notfunError s
 ----------------------------------
