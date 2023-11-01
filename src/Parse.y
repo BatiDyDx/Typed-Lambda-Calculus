@@ -67,7 +67,7 @@ Atom    :: { LamTerm }
         | VAR                          { LVar $1 }  
         | '(' Exp ',' Exp ')'          { LPair $2 $4 }
         | '(' Exp ')'                  { $2 }
-        | zero                            { LZero }                
+        | zero                         { LZero }                
         | suc Exp                      { LSuc $2 }
         | R Atom Atom Atom             { LRec $2 $3 $4 }                           
 

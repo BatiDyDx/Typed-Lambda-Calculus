@@ -184,7 +184,7 @@ infer' c e (Rec t1 t2 t3) = do  tt1 <- infer' c e t1
                                 else matchRecTypes tt1 tt2
 
 matchRecTypes :: Type -> Type -> Either String Type
-matchRecTypes t (FunT (FunT s n) r) | n /= NatT = matchError NatT n
+matchRecTypes t (FunT s (FunT n r)) | n /= NatT = matchError NatT n
                                     | t /= s    = matchError t s
                                     | s /= r    = matchError s r
                                     | otherwise = ret t
